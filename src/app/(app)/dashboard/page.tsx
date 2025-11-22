@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { BarChart, Calendar, FilePlus2, HeartPulse, LineChart, Target } from "lucide-react";
