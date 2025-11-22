@@ -18,9 +18,9 @@ const assessmentSchema = z.object({
   age: z.coerce.number().min(12, 'Age must be at least 12').max(60, 'Age must be at most 60'),
   weight: z.coerce.number().min(30, 'Weight must be at least 30kg').max(200, 'Weight must be at most 200kg'),
   height: z.coerce.number().min(100, 'Height must be at least 100cm').max(250, 'Height must be at most 250cm'),
-  cycleRegularity: z.enum(['regular', 'irregular']),
-  exerciseFrequency: z.enum(['none', '1-2_week', '3-4_week', '5-plus_week']),
-  diet: z.enum(['balanced', 'unhealthy', 'other']),
+  cycleRegularity: z.enum(['regular', 'irregular'], { required_error: 'Please select an option.'}),
+  exerciseFrequency: z.enum(['none', '1-2_week', '3-4_week', '5-plus_week'], { required_error: 'Please select an option.'}),
+  diet: z.enum(['balanced', 'unhealthy', 'other'], { required_error: 'Please select an option.'}),
   medicalHistory: z.string().optional(),
 });
 
@@ -122,12 +122,33 @@ const Step2 = () => (
                 </FormItem>
             )}
         />
+        <FormField
+            name="diet"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>How would you describe your diet?</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select diet type" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="balanced">Balanced</SelectItem>
+                        <SelectItem value="unhealthy">Mostly unhealthy</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
     </div>
 );
 
 const steps = [
-  { id: '01', name: 'Personal Details', component: Step1 },
-  { id: '02', name: 'Lifestyle', component: Step2 },
+  { id: '01', name: 'Personal Details', component: Step1, fields: ['age', 'weight', 'height'] },
+  { id: '02', name: 'Lifestyle', component: Step2, fields: ['cycleRegularity', 'exerciseFrequency', 'diet'] },
 ];
 
 export default function AssessmentPage() {
@@ -137,6 +158,12 @@ export default function AssessmentPage() {
   const form = useForm<AssessmentFormValues>({
     resolver: zodResolver(assessmentSchema),
     defaultValues: {
+      age: undefined,
+      weight: undefined,
+      height: undefined,
+      cycleRegularity: undefined,
+      exerciseFrequency: undefined,
+      diet: undefined,
       medicalHistory: '',
     },
   });
@@ -152,7 +179,9 @@ export default function AssessmentPage() {
   }
 
   const nextStep = async () => {
-    const isValid = await form.trigger(Object.keys(steps[currentStep].component().props.children.props) as any);
+    const fields = steps[currentStep].fields;
+    const isValid = await form.trigger(fields as FieldPath<AssessmentFormValues>[], { shouldFocus: true });
+    
     if(isValid) {
         if (currentStep < steps.length - 1) {
             setCurrentStep((prev) => prev + 1);
@@ -184,7 +213,7 @@ export default function AssessmentPage() {
         </CardHeader>
         <CardContent>
           <FormProvider {...form}>
-            <form className="space-y-8">
+            <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
                 <CurrentStepComponent />
             </form>
           </FormProvider>
