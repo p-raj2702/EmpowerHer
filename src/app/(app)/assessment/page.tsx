@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -158,9 +158,9 @@ export default function AssessmentPage() {
   const form = useForm<AssessmentFormValues>({
     resolver: zodResolver(assessmentSchema),
     defaultValues: {
-      age: undefined,
-      weight: undefined,
-      height: undefined,
+      age: '' as any,
+      weight: '' as any,
+      height: '' as any,
       cycleRegularity: undefined,
       exerciseFrequency: undefined,
       diet: undefined,
