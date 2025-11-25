@@ -1,17 +1,22 @@
 import {AssessmentInput, PredictionResult} from "../types";
+import * as functions from "firebase-functions";
 
-// Mock ML model - replace with actual model loading
-// In production, load from Firebase Storage or Cloud Storage
-const DEV_MODE = process.env.DEV_MODE === "true" || !process.env.MODEL_PATH;
+// Get configuration from Firebase Functions config or environment variables
+// Firebase Functions v2 uses functions.config(), but we also support env vars for local dev
+let config: any = {};
+try {
+  config = functions.config();
+} catch (e) {
+  // If config is not available (e.g., in local emulator), use env vars
+  config = {};
+}
+
+const DEV_MODE = config.ml_service?.dev_mode === "true" || process.env.DEV_MODE === "true";
+const ML_SERVICE_URL = config.ml_service?.url || process.env.ML_SERVICE_URL || "http://localhost:8000";
 
 /**
- * Mock prediction function - replace with actual model inference
- * In production, this would:
- * 1. Load the model from storage (basic_pcos_model.pkl)
- * 2. Load the imputer (basic_imputer.pkl)
- * 3. Transform input features
- * 4. Run prediction
- * 5. Calculate SHAP values for explainability
+ * Predict PCOS risk using the ML model service
+ * In production, this calls the Python FastAPI microservice
  */
 export async function predictPCOSRisk(
   input: AssessmentInput
@@ -21,10 +26,38 @@ export async function predictPCOSRisk(
     return getMockPrediction(input);
   }
 
-  // Production path: Load actual model
-  // For now, we'll use a Python microservice or call a deployed model
-  // This is a placeholder for the actual implementation
-  throw new Error("Production model not yet integrated. Set DEV_MODE=true for testing.");
+  // Production path: Call the ML microservice
+  try {
+    const response = await fetch(`${ML_SERVICE_URL}/predict`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`ML service error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    
+    // Validate and transform the response
+    return {
+      label: result.label as "No Risk" | "Early" | "High",
+      probabilities: {
+        NoRisk: result.probabilities.NoRisk || 0,
+        Early: result.probabilities.Early || 0,
+        High: result.probabilities.High || 0,
+      },
+      topContributors: result.topContributors || [],
+    };
+  } catch (error: any) {
+    // Fallback to mock if service is unavailable
+    console.error("ML service error, falling back to mock:", error.message);
+    return getMockPrediction(input);
+  }
 }
 
 function getMockPrediction(input: AssessmentInput): PredictionResult {

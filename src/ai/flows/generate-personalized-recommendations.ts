@@ -8,7 +8,7 @@
  * - PersonalizedRecommendationsOutput - The return type for the generatePersonalizedRecommendations function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai, isAIEnabled} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const PersonalizedRecommendationsInputSchema = z.object({
@@ -29,17 +29,14 @@ const PersonalizedRecommendationsOutputSchema = z.object({
 });
 export type PersonalizedRecommendationsOutput = z.infer<typeof PersonalizedRecommendationsOutputSchema>;
 
-export async function generatePersonalizedRecommendations(
-  input: PersonalizedRecommendationsInput
-): Promise<PersonalizedRecommendationsOutput> {
-  return generatePersonalizedRecommendationsFlow(input);
-}
+let generatePersonalizedRecommendationsFlow: ((input: PersonalizedRecommendationsInput) => Promise<PersonalizedRecommendationsOutput>) | null = null;
 
-const prompt = ai.definePrompt({
-  name: 'personalizedRecommendationsPrompt',
-  input: {schema: PersonalizedRecommendationsInputSchema},
-  output: {schema: PersonalizedRecommendationsOutputSchema},
-  prompt: `You are an AI assistant specialized in providing personalized lifestyle recommendations for women with or at risk of PCOS.
+if (isAIEnabled && ai) {
+  const prompt = ai.definePrompt({
+    name: 'personalizedRecommendationsPrompt',
+    input: {schema: PersonalizedRecommendationsInputSchema},
+    output: {schema: PersonalizedRecommendationsOutputSchema},
+    prompt: `You are an AI assistant specialized in providing personalized lifestyle recommendations for women with or at risk of PCOS.
 
   Based on the user's PCOS risk assessment result, age, height, weight, medical history and lifestyle information, generate personalized recommendations for diet, exercise, stress management, and follow-up actions.
 
@@ -59,16 +56,26 @@ const prompt = ai.definePrompt({
     "stressManagementTechniques": "...",
     "followUpSuggestions": "..."
   }`,
-});
+  });
 
-const generatePersonalizedRecommendationsFlow = ai.defineFlow(
-  {
-    name: 'generatePersonalizedRecommendationsFlow',
-    inputSchema: PersonalizedRecommendationsInputSchema,
-    outputSchema: PersonalizedRecommendationsOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  generatePersonalizedRecommendationsFlow = ai.defineFlow(
+    {
+      name: 'generatePersonalizedRecommendationsFlow',
+      inputSchema: PersonalizedRecommendationsInputSchema,
+      outputSchema: PersonalizedRecommendationsOutputSchema,
+    },
+    async input => {
+      const {output} = await prompt(input);
+      return output!;
+    }
+  );
+}
+
+export async function generatePersonalizedRecommendations(
+  input: PersonalizedRecommendationsInput
+): Promise<PersonalizedRecommendationsOutput> {
+  if (!isAIEnabled || !ai || !generatePersonalizedRecommendationsFlow) {
+    throw new Error('AI is not enabled. Please set GEMINI_API_KEY or GOOGLE_API_KEY environment variable.');
   }
-);
+  return generatePersonalizedRecommendationsFlow(input);
+}
